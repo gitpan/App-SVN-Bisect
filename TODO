@@ -1,0 +1,7 @@
+* Implement a --verbose mode, which outputs the command.
+* Turn verbose mode off by default.
+* The 'after', 'before', and 'skip' commands should take an optional revision
+  number as an argument.
+* Implement "unskip" and "undo" commands.
+* Implement "log" and "replay" (similar to git-bisect).
+* Add lots and lots of tests.

@@ -1,0 +1,175 @@
+#!/usr/bin/perl
+# Copyright (C) 2008, Mark Glines.  See "LICENSE".
+use strict;
+use warnings;
+
+use App::SVN::Bisect;
+use Getopt::Long;
+
+my $min = 0;
+my $max = undef;
+GetOptions(
+    "min=i" => \$min,
+    "max=i" => \$max,
+);
+
+my $action = shift;
+
+my $bisect = App::SVN::Bisect->new(Action => $action, Min => $min, Max => $max);
+$bisect->do_something_intelligent(@ARGV);
+
+
+=head1 NAME
+
+svn-bisect
+
+=head1 SYNOPSIS
+
+    $ svn-bisect start --min 25000 --max 26000
+    $ svn-bisect bad
+    $ svn-bisect bad
+    $ svn-bisect good
+    [etc etc]
+    $ svn-bisect reset
+
+
+=head1 DESCRIPTION
+
+This tool's purpose is to help you determine which revision of a subversion
+repository contains a change.  It does this by employing a binary search.
+It will manage the current revision of your checkout directory, and narrow
+in on the target revision, as you give it clues about the current revision
+such as "before" (this revision is before the one you want) or "after" (this
+revision is after the one you want).
+
+Start a bisect session with the "start" command.  Then, walk the binary tree
+by using the "before" and "after" commands.  When you are done, the tool will
+tell you the target revision.
+
+The most common usage scenario is finding out which rev a bug was introduced
+in.  For this purpose, some command aliases have been added: if the current
+revision contains the bug, you can use the "bad" command (meaning, this
+revision is "after" the change you want to find), otherwise use the "good" 
+command (meaning, this revision is "before" the change you want to find). 
+
+All commands should be run from within a subversion checkout directory.  After
+a "svn-bisect start", all subsequent svn-bisect commands need to be run from
+that same directory.
+
+
+=head1 SUBCOMMANDS
+
+=head2 start
+
+    svn-bisect start --min M --max N
+
+Start a new bisect session.  If --min isn't specified, rev 0 is used.  If --max
+isn't specified, the biggest rev in the repository is used.
+
+=head2 after
+
+    svn-bisect after
+    or: svn-bisect bad
+
+Inform svn-bisect that the current revision is *after* the change we're looking
+for.  If you are looking for the rev which introduced a bug, the alias "bad"
+might be easier to remember.
+
+=head2 before
+
+    svn-bisect before
+    or: svn-bisect good
+
+Inform svn-bisect that the current revision is *before* the change we're
+looking for.  If you are looking for the rev which introduced a bug, the alias
+"good" might be easier to remember.
+
+=head2 skip
+
+    svn-bisect skip
+
+Tell svn-bisect to skip the current revision.  Do this if you can't determine
+whether the current revision is bad or good, if, for instance, some other
+change prevents it from compiling successfully.
+
+=head2 reset
+
+    svn-bisect reset
+
+Clean up after a bisect, and return the repository to the revision it was at
+before you started.
+
+=head2 help
+
+    svn-bisect help
+    svn-bisect help start
+
+Gives you some useful descriptions and usage information.
+
+
+=head1 SCREENSHOT
+
+...Because, you know, no software documentation is complete without a flashy
+screenshot these days.
+
+    parrot-trunk% svn-bisect start --min 25000 --max 26000
+    Running: svn info
+    Running: svn log -q -rHEAD:PREV
+    Running: svn log -q -r25000:26000
+    There are 840 revs left in the pool.  Choosing r25488.
+    Running: svn update -r25488
+    parrot-trunk% svn-bisect before
+    There are 419 revs left in the pool.  Choosing r25726.
+    Running: svn update -r25726
+    parrot-trunk% svn-bisect after
+    There are 209 revs left in the pool.  Choosing r25593.
+    Running: svn update -r25593
+    parrot-trunk% svn-bisect after
+    There are 104 revs left in the pool.  Choosing r25541.
+    Running: svn update -r25541
+    parrot-trunk% svn-bisect after
+    There are 52 revs left in the pool.  Choosing r25515.
+    Running: svn update -r25515
+    parrot-trunk% svn-bisect after
+    There are 26 revs left in the pool.  Choosing r25502.
+    Running: svn update -r25502
+    parrot-trunk% svn-bisect after
+    There are 13 revs left in the pool.  Choosing r25495.
+    Running: svn update -r25495
+    parrot-trunk% svn-bisect before
+    There are 6 revs left in the pool.  Choosing r25499.
+    Running: svn update -r25499
+    parrot-trunk% svn-bisect before
+    There are 2 revs left in the pool.  Choosing r25501.
+    Running: svn update -r25501
+    parrot-trunk% svn-bisect after
+    There are 1 revs left in the pool.  Choosing r25500.
+    Running: svn update -r25500
+    parrot-trunk% svn-bisect after
+    This is the end of the road!  The change occurred in r25500.
+    parrot-trunk% svn-bisect reset
+    Running: svn update -r27252
+
+
+=head1 AUTHOR
+
+    Mark Glines <mark-cpan@glines.org>
+
+
+=head1 THANKS
+
+* Thanks to the git-bisect author(s), for coming up with a user interface that
+  I actually like.
+* Thanks to Will Coleda for inspiring me to actually write and release this.
+* Thanks to the Parrot project for having so much random stuff going on as to
+  make a tool like this necessary.
+
+
+=head1 COPYRIGHT AND LICENSE
+
+This software is copyright (c) 2008 Mark Glines.
+
+It is distributed under the terms of the Artistic License 2.0.  For details,
+see the "LICENSE" file packaged alongside this tool.
+
+=cut
