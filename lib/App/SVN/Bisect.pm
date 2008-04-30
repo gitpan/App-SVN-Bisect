@@ -8,7 +8,7 @@ use File::Spec;
 use IO::All;
 use YAML;
 
-our $VERSION = 0.1;
+our $VERSION = 0.2;
 
 =head1 NAME
 
@@ -432,7 +432,9 @@ sub find_cur {
 
 * Thanks to the git-bisect author(s), for coming up with a user interface that
   I actually like.
+
 * Thanks to Will Coleda for inspiring me to actually write and release this.
+
 * Thanks to the Parrot project for having so much random stuff going on as to
   make a tool like this necessary.
 

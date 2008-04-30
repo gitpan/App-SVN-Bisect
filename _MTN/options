@@ -1,3 +1,0 @@
-database "/home/infinoid/mt.db"
-  branch "org.glines.mark.svn.bisect"
-  keydir "/home/infinoid/.monotone/keys"

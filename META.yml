@@ -1,6 +1,6 @@
 ---
 name: App-SVN-Bisect
-version: 0.1
+version: 0.2
 author:
   - 'Mark Glines <mark@glines.org>'
 abstract: tool to perform binary searches on SVN checkouts
@@ -14,7 +14,7 @@ requires:
 provides:
   App::SVN::Bisect:
     file: lib/App/SVN/Bisect.pm
-    version: 0.1
+    version: 0.2
 generated_by: Module::Build version 0.2808
 meta-spec:
   url: http://module-build.sourceforge.net/META-spec-v1.2.html

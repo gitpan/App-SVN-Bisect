@@ -1,9 +1,6 @@
 .project
-_MTN/format
-_MTN/log
-_MTN/options
-_MTN/revision
 Build.PL
+Changes
 lib/App/SVN/Bisect.pm
 LICENSE
 Makefile.PL
