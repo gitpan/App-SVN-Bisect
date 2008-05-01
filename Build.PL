@@ -7,6 +7,8 @@ Module::Build->new(
         # Carp         => 0,
         # Getopt::Long => 0,
         # File::Spec   => 0,
+        # File::Temp   => 0,
+        # Test::More   => 0,
 
         IO::All        => 0,
         YAML           => 0,

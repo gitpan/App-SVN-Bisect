@@ -8,4 +8,5 @@ MANIFEST			This list of files
 META.yml
 README
 svn-bisect
+t/01_basic_operation.t
 TODO

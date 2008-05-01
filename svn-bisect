@@ -164,6 +164,23 @@ screenshot these days.
     parrot-trunk%
 
 
+=head1 REQUIREMENTS
+
+This tool requires:
+
+* A computer
+
+* A brain
+
+* An installation of Perl, version 5.8 or above
+
+* The IO::All module, installed from CPAN
+
+* The YAML module, installed from CPAN
+
+* The "svn" command somewhere in your PATH, executable by the current user
+
+
 =head1 AUTHOR
 
     Mark Glines <mark-cpan@glines.org>

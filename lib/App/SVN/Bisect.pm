@@ -1,4 +1,3 @@
-# Copyright (C) 2008, Mark Glines.  See "LICENSE".
 package App::SVN::Bisect;
 use strict;
 use warnings;
@@ -8,11 +7,11 @@ use File::Spec;
 use IO::All;
 use YAML;
 
-our $VERSION = 0.2;
+our $VERSION = 0.3;
 
 =head1 NAME
 
-App::SVN::Bisect
+App::SVN::Bisect - binary search through svn revisions
 
 =head1 SYNOPSIS
 
@@ -263,7 +262,7 @@ END
     );
     die("No known help topic \"$subcommand\".  Try \"$0 help\" for a list of topics.\n")
         unless exists $help{$subcommand};
-    print($help{$subcommand});
+    $self->stdout($help{$subcommand});
     exit 0;
 }
 
@@ -280,7 +279,7 @@ Runs a command, returns its output.
 
 sub run {
     my ($self, $cmd) = @_;
-    print("Running: $cmd\n");
+    $self->verbose("Running: $cmd\n");
     return qx($cmd);
 }
 
@@ -298,14 +297,15 @@ sub next_rev {
     my $self = shift;
     my @revs = $self->list_revs();
     unless(scalar @revs) {
-        print("This is the end of the road!  The change occurred in r",
+        $self->stdout("This is the end of the road!  The change occurred in r",
             $$self{config}{max}, ".\n");
         exit(0);
     }
     my $ent = 0;
     $ent = scalar @revs >> 1 if scalar @revs > 1;
     my $rev = $$self{config}{cur} = $revs[$ent];
-    print("There are ", scalar @revs, " revs left in the pool.  Choosing r$rev.\n");
+    $self->stdout("There are ", scalar @revs, " revs left in the pool."
+                 ."  Choosing r$rev.\n");
     return $self->run("svn update -r$rev");
 }
 
@@ -335,6 +335,36 @@ sub list_revs {
     return @rv;
 }
 
+
+=head2 stdout
+
+    $self->stdout("Hello, world!\n");
+
+Output a message to stdout.  This is basically just the "print" function, but
+we use a method so the testsuite can override it through subclassing.
+
+=cut
+
+sub stdout {
+    my $self = shift;
+    print(@_);
+}
+
+
+=head2 verbose
+
+    $self->verbose("Hello, world!\n");
+
+Output a message to stdout, if the user specified the --verbose option.  This
+is basically just a conditional wrapper around the "print" function.
+
+=cut
+
+sub verbose {
+    my $self = shift;
+    # TODO: make this conditional
+    print(@_);
+}
 
 =head1 Subversion accessor methods
 
@@ -414,6 +444,13 @@ sub find_cur {
     my $self = shift;
     my $info = $self->run("svn info");
     $info =~ s/\r//;
+    # prefer the "Last Changed Rev:" entry
+    foreach my $line (split(/\n+/, $info)) {
+        if($line =~ /^Last Changed Rev: (\d+)/) {
+            return $1;
+        }
+    }
+    # but if that doesn't exist, use "Revision:"
     foreach my $line (split(/\n+/, $info)) {
         if($line =~ /^Revision: (\d+)/) {
             return $1;
@@ -431,12 +468,12 @@ sub find_cur {
 =head1 THANKS
 
 * Thanks to the git-bisect author(s), for coming up with a user interface that
-  I actually like.
+I actually like.
 
 * Thanks to Will Coleda for inspiring me to actually write and release this.
 
 * Thanks to the Parrot project for having so much random stuff going on as to
-  make a tool like this necessary.
+make a tool like this necessary.
 
 
 =head1 COPYRIGHT AND LICENSE
@@ -445,5 +482,7 @@ This software is copyright (c) 2008 Mark Glines.
 
 It is distributed under the terms of the Artistic License 2.0.  For details,
 see the "LICENSE" file packaged alongside this module.
+
+=cut
 
 1;

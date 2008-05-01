@@ -1,3 +1,7 @@
+0.3 Thu May  1 06:36:38 PDT 2008
+* Prefer "Last Changed Rev:" over "Revision:", when parsing "svn info"
+* Add a basic test script.
+
 0.2 Wed Apr 30 10:53:33 PDT 2008
 * Some POD whitespace fixes.
 
