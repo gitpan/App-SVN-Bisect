@@ -33,14 +33,11 @@ sub stdout {
     push(@{$$self{stdout}}, @lines);
 }
 
-sub verbose { &stdout }
-
 package main;
 
 my $test_responses = {
     "svn info" => <<EOF,
 Blah: foo
-Revision: 17
 Last Changed Rev: 16
 Bar: baz
 EOF
@@ -81,26 +78,35 @@ EOF
 # so, the initial revspace is: (1 8 12 15 16 18 24 31)
 
 # test default args
-my $bisect = test->new(Action => "start", Min => 0, Max => undef);
+my $bisect = test->new(Action => "start", Min => 0, Max => undef, Verbose => 0);
 ok(defined($bisect), "new() returns an object");
 is(ref($bisect), "test", "new() blesses object into specified class");
 ok(!-f catfile(".svn", "bisect.yaml"), "metadata file not created yet");
 BEGIN { $tests += 3; };
 
-# run the "start" method
+# test "start"
 $$bisect{rvs} = $test_responses;
 $bisect->do_something_intelligent();
 ok(-f catfile(".svn", "bisect.yaml"), "metadata file created");
 is($$bisect{config}{max}, 31, "biggest svn revision was autodetected");
 is($$bisect{config}{min}, 0 , "minimum is 0 by default");
-is($$bisect{config}{orig},16, "Last Changed Rev: is preferred over Revision:");
+is($$bisect{config}{orig},16, "Last Changed Rev: is parsed correctly");
 is($$bisect{config}{cur}, 15, "first step: test r15");
 is(scalar @{$$bisect{stdout}}, 1, "1 line written");
 like($$bisect{stdout}[0], qr/Choosing r15/, "Choosing r15");
 BEGIN { $tests += 7; };
 
-# if I keep running "after", the result should be 1
-$bisect = test->new(Action => "after", Min => 0, Max => undef);
+# test "skip"
+$bisect = test->new(Action => "skip", Min => 0, Max => undef, Verbose => 0);
+$$bisect{rvs} = $test_responses;
+$bisect->do_something_intelligent();
+is($$bisect{config}{cur}, 16, "next step: test r16");
+is(scalar @{$$bisect{stdout}}, 1, "1 line written");
+like($$bisect{stdout}[0], qr/Choosing r16/, "Choosing r16");
+BEGIN { $tests += 3; };
+
+# test "after"
+$bisect = test->new(Action => "after", Min => 0, Max => undef, Verbose => 0);
 $$bisect{rvs} = $test_responses;
 $bisect->do_something_intelligent();
 is($$bisect{config}{cur}, 8, "next step: test r8");
@@ -108,19 +114,30 @@ is(scalar @{$$bisect{stdout}}, 1, "1 line written");
 like($$bisect{stdout}[0], qr/Choosing r8/, "Choosing r8");
 BEGIN { $tests += 3; };
 
-$bisect = test->new(Action => "after", Min => 0, Max => undef);
+# test "before"
+$bisect = test->new(Action => "before", Min => 0, Max => undef, Verbose => 0);
 $$bisect{rvs} = $test_responses;
 $bisect->do_something_intelligent();
-is($$bisect{config}{cur}, 1, "next step: test r1");
+is($$bisect{config}{cur}, 12, "next step: test r12");
 is(scalar @{$$bisect{stdout}}, 1, "1 line written");
-like($$bisect{stdout}[0], qr/Choosing r1/, "Choosing r1");
+like($$bisect{stdout}[0], qr/Choosing r12/, "Choosing r12");
 BEGIN { $tests += 3; };
 
-# test the "reset" method
+# test "reset"
 ok(-f catfile(".svn", "bisect.yaml"), "metadata file still exists");
-$bisect = test->new(Action => "reset", Min => 0, Max => undef);
+$bisect = test->new(Action => "reset", Min => 0, Max => undef, Verbose => 0);
 $$bisect{rvs} = $test_responses;
 $bisect->do_something_intelligent();
 ok(!defined $$bisect{stdout}, "no output");
 ok(!-f catfile(".svn", "bisect.yaml"), "metadata file removed");
 BEGIN { $tests += 3; };
+
+# test ->run()
+$? = 0;
+my $version = App::SVN::Bisect::run($bisect, "svn --version");
+SKIP: {
+    skip "no svn command found!", 1 if $?;
+
+    like($version, qr/Subversion/, "svn --version output matches /Subversion/");
+};
+BEGIN { $tests += 1; };

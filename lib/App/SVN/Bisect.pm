@@ -7,7 +7,7 @@ use File::Spec;
 use IO::All;
 use YAML;
 
-our $VERSION = 0.3;
+our $VERSION = 0.4;
 
 =head1 NAME
 
@@ -98,7 +98,6 @@ metadata file is removed.
 
 sub do_something_intelligent {
     my $self = shift;
-    croak("undef self?") unless defined $self;
     my $handler = $actions{$$self{action}}{handler};
     my $rv = &$handler($self, @_);
     unlink($$self{metadata});
@@ -176,7 +175,7 @@ when "start" was first called.
 sub reset {
     my $self = shift;
     my $orig = $$self{config}{orig};
-    return $self->run("svn update -r$orig");
+    return $self->update_to($orig);
 }
 
 
@@ -306,7 +305,7 @@ sub next_rev {
     my $rev = $$self{config}{cur} = $revs[$ent];
     $self->stdout("There are ", scalar @revs, " revs left in the pool."
                  ."  Choosing r$rev.\n");
-    return $self->run("svn update -r$rev");
+    return $self->update_to($rev);
 }
 
 
@@ -362,7 +361,7 @@ is basically just a conditional wrapper around the "print" function.
 
 sub verbose {
     my $self = shift;
-    # TODO: make this conditional
+    return unless $$self{args}{Verbose};
     print(@_);
 }
 
@@ -378,7 +377,6 @@ Calls 'svn update' to move to the specified revision.
 
 sub update_to {
     my ($self, $rev) = @_;
-    croak("undefined rev") unless defined $rev;
     my $cmd = "svn update -r$rev";
     $self->run($cmd);
 }
@@ -444,15 +442,9 @@ sub find_cur {
     my $self = shift;
     my $info = $self->run("svn info");
     $info =~ s/\r//;
-    # prefer the "Last Changed Rev:" entry
+    # parse the "Last Changed Rev:" entry
     foreach my $line (split(/\n+/, $info)) {
         if($line =~ /^Last Changed Rev: (\d+)/) {
-            return $1;
-        }
-    }
-    # but if that doesn't exist, use "Revision:"
-    foreach my $line (split(/\n+/, $info)) {
-        if($line =~ /^Revision: (\d+)/) {
             return $1;
         }
     }

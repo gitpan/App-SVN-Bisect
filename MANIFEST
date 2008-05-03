@@ -1,4 +1,3 @@
-.project
 Build.PL
 Changes
 lib/App/SVN/Bisect.pm

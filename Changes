@@ -1,3 +1,10 @@
+0.4 Sat May  3 08:51:14 PDT 2008
+* Don't bother with "Revision:" - "Last Changed Rev:" has been in subversion
+  ever since "svn info" was added.
+* Add a --verbose (-v) option... svn command invocations are hidden by default.
+* Update the screenshot accordingly.
+* Tweak the testsuite for better test coverage.
+
 0.3 Thu May  1 06:36:38 PDT 2008
 * Prefer "Last Changed Rev:" over "Revision:", when parsing "svn info"
 * Add a basic test script.

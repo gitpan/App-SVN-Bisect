@@ -8,14 +8,22 @@ use Getopt::Long;
 
 my $min = 0;
 my $max = undef;
+my $verbose = 0;
+
 GetOptions(
-    "min=i" => \$min,
-    "max=i" => \$max,
+    "min=i"   => \$min,
+    "max=i"   => \$max,
+    "verbose" => \$verbose,
 );
 
 my $action = shift;
 
-my $bisect = App::SVN::Bisect->new(Action => $action, Min => $min, Max => $max);
+my $bisect = App::SVN::Bisect->new(
+    Action  => $action,
+    Min     => $min,
+    Max     => $max,
+    Verbose => $verbose
+);
 $bisect->do_something_intelligent(@ARGV);
 
 
@@ -107,61 +115,147 @@ before you started.
 Gives you some useful descriptions and usage information.
 
 
-=head1 SCREENSHOT
+=head1 EXAMPLE
 
 ...Because, you know, no software documentation is complete without a flashy
-screenshot these days.
+screenshot, these days.
 
-    parrot-trunk% svn-bisect start --min 25000 --max 26000
-    Running: svn info
-    Running: svn log -q -rHEAD:PREV
-    Running: svn log -q -r25000:26000
-    There are 840 revs left in the pool.  Choosing r25488.
-    Running: svn update -r25488
+So, lets say you were wondering when the subversion project added the
+"Last Changed Rev:" line to the output of "svn info".  Determining the
+existence of this change is a straightforward matter of searching for the
+text string... if a result was found, the current revision is "after",
+otherwise it was "before".  So a bisect looks like this:
 
-    parrot-trunk% svn-bisect before
-    There are 419 revs left in the pool.  Choosing r25726.
-    Running: svn update -r25726
+    $ svn co http://svn.collab.net/repos/svn/trunk/subversion
+    [snip lots of svn checkout spam]
+    Checked out revision 30958.
+    
+    $ cd subversion
+    
+    $ ack --nocolor --nogroup 'Last Changed Rev'
+    svn/info-cmd.c:351:    SVN_ERR(svn_cmdline_printf(pool, _("Last Changed Rev: %ld\n"),
+    
+    $ date
+    Fri May  2 12:52:20 PDT 2008
+    
+    $ svn-bisect start
+    There are 13853 revs left in the pool.  Choosing r15480.
+    
+    $ ack --nocolor --nogroup 'Last Changed Rev'
+    clients/cmdline/info-cmd.c:137:    SVN_ERR (svn_cmdline_printf (pool, _("Last Changed Rev: %ld\n"),
+    
+    $ svn-bisect after
+    There are 6926 revs left in the pool.  Choosing r6010.
+    
+    $ ack --nocolor --nogroup 'Last Changed Rev'
+    clients/cmdline/info-cmd.c:158:    printf ("Last Changed Rev: %" SVN_REVNUM_T_FMT "\n", entry->cmt_rev);
+    
+    $ svn-bisect after
+    There are 3463 revs left in the pool.  Choosing r2481.
+    
+    $ ack --nocolor --nogroup 'Last Changed Rev'
+    clients/cmdline/info-cmd.c:153:    printf ("Last Changed Rev: %" SVN_REVNUM_T_FMT "\n", entry->cmt_rev);
+    
+    $ svn-bisect after
+    There are 1731 revs left in the pool.  Choosing r1168.
+    
+    $ ack --nocolor --nogroup 'Last Changed Rev'
+    
+    $ svn-bisect before
+    There are 865 revs left in the pool.  Choosing r1800.
+    
+    $ ack --nocolor --nogroup 'Last Changed Rev'
+    
+    $ svn-bisect before
+    There are 432 revs left in the pool.  Choosing r2127.
+    
+    $ ack --nocolor --nogroup 'Last Changed Rev'
+    clients/cmdline/info-cmd.c:161:        printf ("Last Changed Rev: %" SVN_REVNUM_T_FMT "\n", entry->cmt_rev);
+    
+    $ svn-bisect after
+    There are 216 revs left in the pool.  Choosing r1961.
+    
+    $ ack --nocolor --nogroup 'Last Changed Rev'
+    clients/cmdline/info-cmd.c:161:        printf ("Last Changed Rev: %" SVN_REVNUM_T_FMT "\n", entry->cmt_rev);
+    
+    $ svn-bisect after
+    There are 108 revs left in the pool.  Choosing r1881.
+    
+    $ ack --nocolor --nogroup 'Last Changed Rev'
+    clients/cmdline/info-cmd.c:161:        printf ("Last Changed Rev: %" SVN_REVNUM_T_FMT "\n", entry->cmt_rev);
+    
+    $ svn-bisect after
+    There are 54 revs left in the pool.  Choosing r1845.
+    
+    $ ack --nocolor --nogroup 'Last Changed Rev'
+    clients/cmdline/info-cmd.c:150:        printf ("Last Changed Rev: %ld\n", entry->cmt_rev);
+    
+    $ svn-bisect after
+    There are 27 revs left in the pool.  Choosing r1827.
+    
+    $ ack --nocolor --nogroup 'Last Changed Rev'
+    clients/cmdline/info-cmd.c:150:        printf ("Last Changed Rev: %ld\n", entry->cmt_rev);
+    
+    $ svn-bisect after
+    There are 13 revs left in the pool.  Choosing r1809.
+    
+    $ ack --nocolor --nogroup 'Last Changed Rev'
+    clients/cmdline/info-cmd.c:153:            printf ("Last Changed Rev: %ld\n", entry->cmt_rev);
+    
+    $ svn-bisect after
+    There are 6 revs left in the pool.  Choosing r1806.
+    
+    $ ack --nocolor --nogroup 'Last Changed Rev'
+    
+    $ svn-bisect before
+    There are 2 revs left in the pool.  Choosing r1808.
+    
+    $ ack --nocolor --nogroup 'Last Changed Rev'
+    
+    $ svn-bisect before
+    This is the end of the road!  The change occurred in r1809.
+    
+    $ svn log -r1809
+    ------------------------------------------------------------------------
+    r1809 | rooneg | 2002-04-27 12:23:38 -0700 (Sat, 27 Apr 2002) | 30 lines
+    
+    As requested by cmpilato in issue #676, add an 'svn info' command, which 
+    prints out the contents of the svn_wc_entry_t for a given versioned resource.
+    
+    * CHANGES
+      note the addition of the 'svn info' command.
+    
+    * subversion/clients/cmdline/cl.h
+      add declaration for svn_cl__info.
+    
+    * subversion/clients/cmdline/info-cmd.c
+      new file implementing the info command.
+    
+    * subversion/clients/cmdline/main.c
+      hook up the info command.
+    
+    * subversion/clients/cmdline/man/svn.1
+      document the info command.
+    
+    * subversion/tests/clients/cmdline/getopt_tests_data/svn--help_stdout
+      update for the addition of info command.
+    
+    * subversion/tests/clients/cmdline/getopt_tests_data/svn_help_stdout
+      ditto.
+    
+    * subversion/tests/clients/cmdline/getopt_tests_data/svn_stderr
+      ditto.
+    
+    * tools/dev/bash_completion
+      add 'info' to the tab completion.
+    
+    ------------------------------------------------------------------------
+    
+    $ date
+    Fri May  2 12:56:00 PDT 2008
 
-    parrot-trunk% svn-bisect after
-    There are 209 revs left in the pool.  Choosing r25593.
-    Running: svn update -r25593
-
-    parrot-trunk% svn-bisect after
-    There are 104 revs left in the pool.  Choosing r25541.
-    Running: svn update -r25541
-
-    parrot-trunk% svn-bisect after
-    There are 52 revs left in the pool.  Choosing r25515.
-    Running: svn update -r25515
-
-    parrot-trunk% svn-bisect after
-    There are 26 revs left in the pool.  Choosing r25502.
-    Running: svn update -r25502
-
-    parrot-trunk% svn-bisect after
-    There are 13 revs left in the pool.  Choosing r25495.
-    Running: svn update -r25495
-
-    parrot-trunk% svn-bisect before
-    There are 6 revs left in the pool.  Choosing r25499.
-    Running: svn update -r25499
-
-    parrot-trunk% svn-bisect before
-    There are 2 revs left in the pool.  Choosing r25501.
-    Running: svn update -r25501
-
-    parrot-trunk% svn-bisect after
-    There are 1 revs left in the pool.  Choosing r25500.
-    Running: svn update -r25500
-
-    parrot-trunk% svn-bisect after
-    This is the end of the road!  The change occurred in r25500.
-
-    parrot-trunk% svn-bisect reset
-    Running: svn update -r27252
-
-    parrot-trunk%
+So, there it is.  In 4 minutes, we've learned that "Last Changed Rev:" has been
+in there since the inception of the "svn info" command itself, back in 2002.
 
 
 =head1 REQUIREMENTS
