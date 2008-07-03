@@ -7,7 +7,7 @@ use File::Spec;
 use IO::All;
 use YAML;
 
-our $VERSION = 0.4;
+our $VERSION = 0.5;
 
 =head1 NAME
 
@@ -29,7 +29,7 @@ This module implements the backend of the "svn-bisect" command line tool.  See
 the POD documentation of that tool, for usage details.
 
 
-=head1 API methods
+=head1 API METHODS
 
 =cut
 
@@ -43,6 +43,8 @@ my %actions = (
     'reset'  => { read_config => 1, write_config => 0, handler => \&reset  },
     'skip'   => { read_config => 1, write_config => 1, handler => \&skip   },
     'start'  => { read_config => 0, write_config => 1, handler => \&start  },
+    'unskip' => { read_config => 1, write_config => 1, handler => \&unskip },
+    'view'   => { read_config => 1, write_config => 0, handler => \&view   },
 );
 
 =head2 new
@@ -107,7 +109,7 @@ sub do_something_intelligent {
 }
 
 
-=head1 Action methods
+=head1 ACTION METHODS
 
 =head2 start
 
@@ -137,14 +139,17 @@ sub start {
 
 =head2 before
 
-Sets the "min" parameter to the current revision, and then moves the user to
-the middle of the resulting range.
+Sets the "min" parameter to the specified (or current) revision, and
+then moves the user to the middle of the resulting range.
 
 =cut
 
 sub before {
     my $self = shift;
-    my $rev = $$self{config}{cur};
+    my $rev = shift;
+    $rev = $$self{config}{cur} unless defined $rev;
+    croak("\"$rev\" is not a revision or is out of range")
+        unless exists($$self{config}{extant}{$rev});
     $$self{config}{min} = $rev;
     return $self->next_rev();
 }
@@ -152,14 +157,17 @@ sub before {
 
 =head2 after
 
-Sets the "max" parameter to the current revision, and then moves the user to
-the middle of the resulting range.
+Sets the "max" parameter to the specified (or current) revision, and
+then moves the user to the middle of the resulting range.
 
 =cut
 
 sub after {
     my $self = shift;
-    my $rev = $$self{config}{cur};
+    my $rev = shift;
+    $rev = $$self{config}{cur} unless defined $rev;
+    croak("\"$rev\" is not a revision or is out of range")
+        unless exists($$self{config}{extant}{$rev});
     $$self{config}{max} = $rev;
     return $self->next_rev();
 }
@@ -181,15 +189,36 @@ sub reset {
 
 =head2 skip
 
-Tells svn-bisect to ignore the current revision, and then moves the user to
-another, nearby revision.
+Tells svn-bisect to ignore the specified (or current) revision, and
+then moves the user to another, strategically useful revision.
 
 =cut
 
 sub skip {
     my $self = shift;
-    my $orig = $$self{config}{cur};
-    $$self{config}{skip}{$orig} = 1;
+    my $rev = shift;
+    $rev = $$self{config}{cur} unless defined $rev;
+    croak("\"$rev\" is not a revision or is out of range")
+        unless exists($$self{config}{extant}{$rev});
+    $$self{config}{skip}{$rev} = 1;
+    return $self->next_rev();
+}
+
+
+=head2 unskip
+
+Tells svn-bisect to stop ignoring the specified revision, then moves
+the user to another, strategically useful revision.
+
+=cut
+
+sub unskip {
+    my $self = shift;
+    my $rev = shift;
+    die("Usage: unskip <revision>\n") unless defined $rev;
+    croak("\"$rev\" is not a revision or is out of range")
+        unless exists($$self{config}{extant}{$rev});
+    delete($$self{config}{skip}{$rev});
     return $self->next_rev();
 }
 
@@ -216,37 +245,39 @@ where subcommand is one of:
     reset
     skip
     start
+    unskip
+    view
 
 For more info on a subcommand, try: $0 help <subcommand>
 END
         'after' => <<"END",
-Usage: $0 after
-Alias: $0 bad
+Usage: $0 after [rev]
+Alias: $0 bad [rev]
 
-Tells the bisect routine that the current checkout is *after* the wanted
-change - after the bug was introduced, after the change in behavior,
-whatever.
+Tells the bisect routine that the specified (or current) checkout is
+*after* the wanted change - after the bug was introduced, after the
+change in behavior, whatever.
 END
         'before' => <<"END",
-Usage: $0 before
-Alias: $0 good
+Usage: $0 before [rev]
+Alias: $0 good [rev]
 
-Tells the bisect routine that the current checkout is *before* the wanted
-change - before the bug was introduced, before the change in behavior,
-whatever.
+Tells the bisect routine that the specified (or current) checkout is
+*before* the wanted change - before the bug was introduced, before the
+change in behavior, whatever.
 END
         'reset' => <<"END",
 Usage: $0 reset
 
-$0 tries to clean up after itself, resets your checkout back to the original
+Tries to clean up after itself, resets your checkout back to the original
 version, and removes its temporary datafile.
 END
         'skip' => <<"END",
-Usage: $0 skip
+Usage: $0 skip [rev]
 
-This will tell $0 to ignore the current revision.  You might want to do
-this if, for example, the current rev does not compile for reasons unrelated
-to the current session.
+This will tell $0 to ignore the specified (or current) revision.  You
+might want to do this if, for example, the current rev does not
+compile for reasons unrelated to the current session.
 END
         'start' => <<"END",
 Usage: $0 [--min <rev>] [--max <rev>] start
@@ -258,15 +289,64 @@ course of the bisection, with the "before" and "after" commands.
 This command will prepare the checkout for a bisect session, and start off
 with a rev in the middle of the list of suspect revisions.
 END
+        'unskip' => <<"END",
+Usage: $0 unskip <rev>
+
+Undoes the effects of "skip <rev>", putting the specified revision
+back into the normal rotation.  The revision argument is required.
+END
+        'view' => <<"END",
+Usage: $0 view
+
+Outputs some descriptive information about where we're at, and about
+the revisions remaining to be tested.  The output looks like:
+
+    There are currently 7 revisions under scrutiny.
+    The last known-unaffected rev is 28913.
+    The first known- affected rev is 28928.
+    Currently testing 28924.
+    
+    Revision chart:
+    28913] 28914 28918 28921 28924 28925 28926 28927 [28928
+
+END
     );
     die("No known help topic \"$subcommand\".  Try \"$0 help\" for a list of topics.\n")
         unless exists $help{$subcommand};
     $self->stdout($help{$subcommand});
-    exit 0;
+    $self->exit(0);
 }
 
 
-=head1 Internal methods
+=head2 view
+
+Allows the user to get some information about the current state of things.
+
+This function calls exit() directly, to prevent do_something_intelligent()
+from removing the metadata file.
+
+=cut
+
+sub view {
+    my $self = shift;
+    my @revs = $self->list_revs();
+    my $cur = $$self{config}{cur};
+    my $min = $$self{config}{min};
+    my $max = $$self{config}{max};
+    my %skips;
+    $self->stdout("There are currently "
+                  . scalar(@revs)
+                  . " revisions under scrutiny.\n");
+    $self->stdout("The last known-unaffected rev is $min.\n");
+    $self->stdout("The first known- affected rev is $max.\n");
+    $self->stdout("Currently testing $cur.\n\n");
+    $self->stdout("Revision chart:\n");
+    $self->stdout("$min] " . join(" ", @revs) . " [$max\n");
+    $self->exit(0);
+}
+
+
+=head1 INTERNAL METHODS
 
 =head2 run
 
@@ -279,7 +359,14 @@ Runs a command, returns its output.
 sub run {
     my ($self, $cmd) = @_;
     $self->verbose("Running: $cmd\n");
-    return qx($cmd);
+    my $output = qx($cmd);
+    my $rv = $? >> 8;
+    if($rv) {
+        $self->stdout("Failure to execute \"$cmd\".\n");
+        $self->stdout("Please fix that, and then re-run this command.\n");
+        $self->exit($rv);
+    }
+    return $output;
 }
 
 
@@ -298,7 +385,7 @@ sub next_rev {
     unless(scalar @revs) {
         $self->stdout("This is the end of the road!  The change occurred in r",
             $$self{config}{max}, ".\n");
-        exit(0);
+        $self->exit(0);
     }
     my $ent = 0;
     $ent = scalar @revs >> 1 if scalar @revs > 1;
@@ -365,7 +452,24 @@ sub verbose {
     print(@_);
 }
 
-=head1 Subversion accessor methods
+
+=head2 exit
+
+    $self->exit(0);
+
+Exits.  This allows the test suite to override exiting; it does not
+provide any other features above and beyond what the normal exit
+system call provides.
+
+=cut
+
+sub exit {
+    my ($self, $rv) = @_;
+    exit($rv);
+}
+
+
+=head1 SUBVERSION ACCESSOR METHODS
 
 =head2 update_to
 
@@ -466,6 +570,11 @@ I actually like.
 
 * Thanks to the Parrot project for having so much random stuff going on as to
 make a tool like this necessary.
+
+
+=head1 SEE ALSO
+
+App::SVNBinarySearch by Will Coleda: L<http://search.cpan.org/dist/App-SVNBinarySearch/>
 
 
 =head1 COPYRIGHT AND LICENSE

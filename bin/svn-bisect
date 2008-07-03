@@ -6,15 +6,26 @@ use warnings;
 use App::SVN::Bisect;
 use Getopt::Long;
 
-my $min = 0;
-my $max = undef;
+my $min     = 0;
+my $max     = undef;
 my $verbose = 0;
+my $help    = 0;
+my $version = 0;
 
 GetOptions(
     "min=i"   => \$min,
     "max=i"   => \$max,
     "verbose" => \$verbose,
+    "version" => \$version,
+    "help"    => \$help,
 );
+
+if($version) {
+    print("This is svn-bisect version ", $App::SVN::Bisect::VERSION, ".\n");
+    exit(0);
+}
+
+unshift(@ARGV, "help") if $help;
 
 my $action = shift;
 
@@ -274,6 +285,8 @@ This tool requires:
 
 * The "svn" command somewhere in your PATH, executable by the current user
 
+* A svn checkout with some history to bisect.
+
 
 =head1 AUTHOR
 
@@ -289,6 +302,11 @@ This tool requires:
 
 * Thanks to the Parrot project for having so much random stuff going on as to
   make a tool like this necessary.
+
+
+=head1 SEE ALSO
+
+App::SVNBinarySearch by Will Coleda: L<http://search.cpan.org/dist/App-SVNBinarySearch/>
 
 
 =head1 COPYRIGHT AND LICENSE

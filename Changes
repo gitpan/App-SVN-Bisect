@@ -1,3 +1,14 @@
+0.5 Wed Jul  2 22:29:14 PDT 2008
+* Add optional revision argument to "skip", "before" and "after" commands.
+* Handle error returns from svn more gracefully; allow the user to resume
+  (by re-running the same command).
+* Add "unskip" and "view" commands.
+* Handle --help properly.
+* Depend on Test::Output and Test::Exception.
+* Tweak the testsuite for 100% test coverage.
+* Add pod and pod coverage tests.
+* Doc update.
+
 0.4 Sat May  3 08:51:14 PDT 2008
 * Don't bother with "Revision:" - "Last Changed Rev:" has been in subversion
   ever since "svn info" was added.

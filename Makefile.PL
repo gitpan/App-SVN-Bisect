@@ -6,11 +6,13 @@ WriteMakefile
           'VERSION_FROM' => 'lib/App/SVN/Bisect.pm',
           'PREREQ_PM' => {
                            'IO::All' => 0,
+                           'Test::Exception' => 0,
+                           'Test::Output' => 0,
                            'YAML' => 0
                          },
           'INSTALLDIRS' => 'site',
           'EXE_FILES' => [
-                           'svn-bisect'
+                           'bin/svn-bisect'
                          ],
           'PL_FILES' => {}
         )

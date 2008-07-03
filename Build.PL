@@ -12,10 +12,14 @@ Module::Build->new(
 
         IO::All        => 0,
         YAML           => 0,
+
+        # needed for the testsuite
+        Test::Exception=> 0,
+        Test::Output   => 0,
     },
     module_name        => 'App::SVN::Bisect',
     license            => 'artistic_2',
-    script_files       => [qw(svn-bisect)],
+    script_files       => [qw(bin/svn-bisect)],
     create_makefile_pl => 'traditional',
     dist_author        => 'Mark Glines <mark@glines.org>',
     dist_version_from  => 'lib/App/SVN/Bisect.pm',
