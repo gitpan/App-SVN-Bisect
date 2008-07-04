@@ -237,7 +237,7 @@ BEGIN { $tests += 7; };
 # test ->run()
 $? = 0;
 $$bisect{stdout} = [];
-my $version = App::SVN::Bisect::run($bisect, "svn --version");
+my $version = eval { App::SVN::Bisect::run($bisect, "svn --version") };
 SKIP: {
     skip "no svn command found!", 4 if $?;
 

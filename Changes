@@ -1,3 +1,7 @@
+0.6 Fri Jul  4 09:26:41 PDT 2008
+* Minor tweak to test as much as possible and still pass even when svn isn't
+  installed.
+
 0.5 Wed Jul  2 22:29:14 PDT 2008
 * Add optional revision argument to "skip", "before" and "after" commands.
 * Handle error returns from svn more gracefully; allow the user to resume

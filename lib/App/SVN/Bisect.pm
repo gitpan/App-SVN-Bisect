@@ -7,7 +7,7 @@ use File::Spec;
 use IO::All;
 use YAML;
 
-our $VERSION = 0.5;
+our $VERSION = 0.6;
 
 =head1 NAME
 
