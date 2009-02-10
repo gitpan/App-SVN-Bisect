@@ -11,7 +11,7 @@ Module::Build->new(
         # Test::More   => 0,
 
         IO::All        => 0,
-        YAML           => 0,
+        YAML::Syck     => 0,
 
         # needed for the testsuite
         Test::Exception=> 0,

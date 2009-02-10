@@ -5,9 +5,9 @@ use warnings;
 use Carp;
 use File::Spec;
 use IO::All;
-use YAML;
+use YAML::Syck;
 
-our $VERSION = 0.6;
+our $VERSION = 0.7;
 
 =head1 NAME
 
@@ -122,17 +122,16 @@ sub start {
     my $self = shift;
     die("A bisect is already in progress.  Try \"$0 help reset\".\n")
         if -f $$self{metadata};
-    $$self{config}{min}  = $$self{args}{Min};
+    $$self{config}{min}  = $$self{args}{Min} if defined $$self{args}{Min};
     $$self{config}{orig} = $self->find_cur();
     my $max = $self->find_max();
     if(defined($$self{args}{Max})) {
         $$self{config}{max} = $$self{args}{Max};
-        croak("Given 'max' value is greater than the repository maximum $max!\n")
+        die("Given 'max' value is greater than the repository maximum $max!\n")
             if $$self{config}{max} > $max;
-    } else {
-        $$self{config}{max} = $max;
     }
-    $$self{config}{extant} = $self->fetch_log_revs();
+    print("self.config.min = " . $$self{config}{min}, "\n") if defined $$self{config}{min};
+    print("self.config.max = " . $$self{config}{max}, "\n") if defined $$self{config}{max};
     return $self->next_rev();
 }
 
@@ -148,8 +147,10 @@ sub before {
     my $self = shift;
     my $rev = shift;
     $rev = $$self{config}{cur} unless defined $rev;
-    croak("\"$rev\" is not a revision or is out of range")
-        unless exists($$self{config}{extant}{$rev});
+    if($self->ready) {
+        die("\"$rev\" is not a revision or is out of range.\n")
+            unless exists($$self{config}{extant}{$rev});
+    }
     $$self{config}{min} = $rev;
     return $self->next_rev();
 }
@@ -166,8 +167,15 @@ sub after {
     my $self = shift;
     my $rev = shift;
     $rev = $$self{config}{cur} unless defined $rev;
-    croak("\"$rev\" is not a revision or is out of range")
-        unless exists($$self{config}{extant}{$rev});
+    $rev = $$self{config}{cur} = $self->find_cur() unless defined $rev;
+    if($self->ready) {
+        die("\"$rev\" is not a revision or is out of range.\n")
+            unless exists($$self{config}{extant}{$rev});
+    } else {
+        my $max = $self->find_max();
+        die("$rev is greater than the repository maximum $max!\n")
+            if $max < $rev;
+    }
     $$self{config}{max} = $rev;
     return $self->next_rev();
 }
@@ -175,8 +183,8 @@ sub after {
 
 =head2 reset
 
-Cleans up after a bisect session; moves the user back to the revision they had
-when "start" was first called.
+Cleans up after a bisect session; moves the working tree back to the original
+revision it had when "start" was first called.
 
 =cut
 
@@ -198,7 +206,7 @@ sub skip {
     my $self = shift;
     my $rev = shift;
     $rev = $$self{config}{cur} unless defined $rev;
-    croak("\"$rev\" is not a revision or is out of range")
+    die("\"$rev\" is not a revision or is out of range.\n")
         unless exists($$self{config}{extant}{$rev});
     $$self{config}{skip}{$rev} = 1;
     return $self->next_rev();
@@ -216,7 +224,7 @@ sub unskip {
     my $self = shift;
     my $rev = shift;
     die("Usage: unskip <revision>\n") unless defined $rev;
-    croak("\"$rev\" is not a revision or is out of range")
+    die("\"$rev\" is not a revision or is out of range.\n")
         unless exists($$self{config}{extant}{$rev});
     delete($$self{config}{skip}{$rev});
     return $self->next_rev();
@@ -293,7 +301,8 @@ END
 Usage: $0 unskip <rev>
 
 Undoes the effects of "skip <rev>", putting the specified revision
-back into the normal rotation.  The revision argument is required.
+back into the normal rotation (if it is still within the range of revisions
+currently under scrutiny).  The revision argument is required.
 END
         'view' => <<"END",
 Usage: $0 view
@@ -329,19 +338,28 @@ from removing the metadata file.
 
 sub view {
     my $self = shift;
-    my @revs = $self->list_revs();
-    my $cur = $$self{config}{cur};
     my $min = $$self{config}{min};
     my $max = $$self{config}{max};
     my %skips;
-    $self->stdout("There are currently "
-                  . scalar(@revs)
-                  . " revisions under scrutiny.\n");
-    $self->stdout("The last known-unaffected rev is $min.\n");
-    $self->stdout("The first known- affected rev is $max.\n");
-    $self->stdout("Currently testing $cur.\n\n");
-    $self->stdout("Revision chart:\n");
-    $self->stdout("$min] " . join(" ", @revs) . " [$max\n");
+    if($self->ready) {
+        my @revs = $self->list_revs();
+        my $cur = $$self{config}{cur};
+        $self->stdout("There are currently "
+                      . scalar(@revs)
+                      . " revisions under scrutiny.\n");
+        $self->stdout("The last known unaffected rev is: $min.\n");
+        $self->stdout("The first known affected rev is:  $max.\n");
+        $self->stdout("Currently testing $cur.\n\n");
+        if(@revs < 30) {
+            $self->stdout("Revision chart:\n");
+            $self->stdout("$min] " . join(" ", @revs) . " [$max\n");
+        }
+    } else {
+        $self->stdout("Not enough information has been given to start yet.\n");
+        $self->stdout("Bisecting may begin when a starting and ending revision are specified.\n");
+        $self->stdout("The last known unaffected rev is: $min.\n") if defined $min;
+        $self->stdout("The first known affected rev is:  $max.\n") if defined $max;
+    }
     $self->exit(0);
 }
 
@@ -370,6 +388,28 @@ sub run {
 }
 
 
+=head2 ready
+
+    $self->next_rev() if $self->ready();
+
+Returns a true value if we have enough information to begin bisecting.
+Specifically, this returns true if we have been given at least one "bad"
+and one "good" revision.  These can be specified as arguments to the
+"before" and "after" commands, or as --min and --max arguments to the
+"start" command.
+
+=cut
+
+sub ready {
+    my $self = shift;
+    return 0 unless defined $$self{config}{min};
+    return 0 unless defined $$self{config}{max};
+    $$self{config}{extant} = $self->fetch_log_revs()
+        unless defined $$self{config}{extant};
+    return 1;
+}
+
+
 =head2 next_rev
 
     $self->next_rev();
@@ -381,11 +421,14 @@ Find a spot in the middle of the current "suspect revisions" list, and calls
 
 sub next_rev {
     my $self = shift;
+    return 0 unless $self->ready();
     my @revs = $self->list_revs();
     unless(scalar @revs) {
+        my $max = $$self{config}{max};
+        $$self{config}{min} = $$self{config}{cur} = $max;
         $self->stdout("This is the end of the road!  The change occurred in r",
-            $$self{config}{max}, ".\n");
-        $self->exit(0);
+                      $max, ".\n");
+        return $self->update_to($max);
     }
     my $ent = 0;
     $ent = scalar @revs >> 1 if scalar @revs > 1;
@@ -411,6 +454,7 @@ the user may specify with the "skip" command).
 
 sub list_revs {
     my $self = shift;
+    confess("called when not ready") unless $self->ready();
     my $min = $$self{config}{min} + 1;
     my $max = $$self{config}{max} - 1;
     my @rv;
@@ -530,7 +574,7 @@ sub find_max {
             return $1;
         }
     }
-    croak("cannot find highest revision in repository");
+    die("Cannot find highest revision in repository.");
 }
 
 
@@ -552,7 +596,7 @@ sub find_cur {
             return $1;
         }
     }
-    croak("cannot find current revision of checkout");
+    die("Cannot find current revision of checkout.");
 }
 
 

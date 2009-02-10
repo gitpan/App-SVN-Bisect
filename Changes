@@ -1,6 +1,23 @@
+0.7 Tue Feb 10 09:27:05 PST 2009
+* Bring the "svn-bisect" manpage up to date.
+* Change 'start' and the initial logic to behave more like git-bisect: if min
+  and max are not specified, don't assume the maximum possible range and
+  immediately start bisecting.  Instead, wait until the user has given these
+  values with the "before" and "after" commands, and don't do anything until
+  that's happened.  (This change may surprise some users who are used to the
+  behavior of older versions, but it will reduce surprise from people used to
+  git-bisect.)
+* Switch to YAML::Syck for a 1000% speed boost (plus or minus some) on
+  repositories with huge logs.
+* Change the final state a bit, so that when the final revision is reached,
+  the config file is updated.  (This reduces confusion when the end is reached
+  and then subsequent commands are issued.)
+
+
 0.6 Fri Jul  4 09:26:41 PDT 2008
 * Minor tweak to test as much as possible and still pass even when svn isn't
   installed.
+
 
 0.5 Wed Jul  2 22:29:14 PDT 2008
 * Add optional revision argument to "skip", "before" and "after" commands.
@@ -13,6 +30,7 @@
 * Add pod and pod coverage tests.
 * Doc update.
 
+
 0.4 Sat May  3 08:51:14 PDT 2008
 * Don't bother with "Revision:" - "Last Changed Rev:" has been in subversion
   ever since "svn info" was added.
@@ -20,12 +38,15 @@
 * Update the screenshot accordingly.
 * Tweak the testsuite for better test coverage.
 
+
 0.3 Thu May  1 06:36:38 PDT 2008
 * Prefer "Last Changed Rev:" over "Revision:", when parsing "svn info"
 * Add a basic test script.
 
+
 0.2 Wed Apr 30 10:53:33 PDT 2008
 * Some POD whitespace fixes.
+
 
 0.1 Wed Apr 30 10:51:16 PDT 2008
 * Initial version.

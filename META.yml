@@ -1,23 +1,23 @@
 ---
 name: App-SVN-Bisect
-version: 0.6
+version: 0.7
 author:
   - 'Mark Glines <mark@glines.org>'
 abstract: tool to perform binary searches on SVN checkouts
 license: artistic_2
 resources:
-  license: http://opensource.org/licenses/artistic-license-2.0.php
+  license: ~
 requires:
   IO::All: 0
   Test::Exception: 0
   Test::Output: 0
-  YAML: 0
+  YAML::Syck: 0
   perl: 5.8.0
 provides:
   App::SVN::Bisect:
     file: lib/App/SVN/Bisect.pm
-    version: 0.6
-generated_by: Module::Build version 0.2808
+    version: 0.7
+generated_by: Module::Build version 0.31012
 meta-spec:
   url: http://module-build.sourceforge.net/META-spec-v1.2.html
   version: 1.2

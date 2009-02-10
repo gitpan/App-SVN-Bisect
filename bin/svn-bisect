@@ -6,7 +6,7 @@ use warnings;
 use App::SVN::Bisect;
 use Getopt::Long;
 
-my $min     = 0;
+my $min     = undef;
 my $max     = undef;
 my $verbose = 0;
 my $help    = 0;
@@ -80,36 +80,49 @@ that same directory.
 
 =head2 start
 
-    svn-bisect start --min M --max N
+    svn-bisect start [--min M] [--max N]
 
-Start a new bisect session.  If --min isn't specified, rev 0 is used.  If --max
-isn't specified, the biggest rev in the repository is used.
+Start a new bisect session.  If --min isn't specified, you can specify it later
+with the "good" command.  If --max isn't specified, you can specify it later
+with the "bad" command.
 
 =head2 after
 
-    svn-bisect after
-    or: svn-bisect bad
+    svn-bisect after [revision]
+    or: svn-bisect bad [revision]
 
-Inform svn-bisect that the current revision is *after* the change we're looking
-for.  If you are looking for the rev which introduced a bug, the alias "bad"
-might be easier to remember.
+Inform svn-bisect that the specified revision is *after* the change we're
+looking for.  If you don't specify a revision number, the current revision of
+the working tree is used.  If you are looking for the rev which introduced a bug
+(which is the common case), the alias "bad" might be easier to remember.
 
 =head2 before
 
-    svn-bisect before
-    or: svn-bisect good
+    svn-bisect before [revision]
+    or: svn-bisect good [revision]
 
-Inform svn-bisect that the current revision is *before* the change we're
-looking for.  If you are looking for the rev which introduced a bug, the alias
-"good" might be easier to remember.
+Inform svn-bisect that the specified revision is *before* the change we're
+looking for.  If you don't specify a revision number, the current revision of
+the working tree is used.  If you are looking for the rev which introduced a bug
+(which is the common case), the alias "good" might be easier to remember.
 
 =head2 skip
 
-    svn-bisect skip
+    svn-bisect skip [revision]
 
-Tell svn-bisect to skip the current revision.  Do this if you can't determine
+Tell svn-bisect to skip the specified revision.  If no revision is specified,
+the current version of the working tree is used.  Do this if you can't determine
 whether the current revision is bad or good, if, for instance, some other
-change prevents it from compiling successfully.
+issue prevents it from compiling successfully.
+
+=head2 unskip
+
+    svn-bisect unskip [revision]
+
+Tell svn-bisect to no longer skip the specified revision.  If no revision is
+specified, the current version of the working tree is used.  The revision may
+be ignored anyway, if it lies outside of the current range of revisions under
+scrutiny.
 
 =head2 reset
 

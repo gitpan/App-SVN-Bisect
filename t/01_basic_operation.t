@@ -108,10 +108,27 @@ EOF
 # so, the initial revspace is: (1 8 12 15 16 18 24 31)
 
 # test default args
-my $bisect = test->new(Action => "start", Min => 0, Verbose => 0);
+my $bisect = test->new(Action => "start", Verbose => 0);
 ok(defined($bisect), "new() returns an object");
 is(ref($bisect), "test", "new() blesses object into specified class");
 ok(!-f catfile(".svn", "bisect.yaml"), "metadata file not created yet");
+BEGIN { $tests += 3; };
+#
+## test "view" when not ready
+#$bisect = test->new(Action => "view", Verbose => 0);
+#$$bisect{rvs} = $test_responses;
+#throws_ok( sub { $bisect->do_something_intelligent() }, qr/exit/, "normal exit");
+#is(scalar @{$$bisect{stdout}}, 6, "6 lines written");
+#is(join("\n", @{$$bisect{stdout}}, ""), <<EOF, "view output when not ready yet");
+#EOF
+#BEGIN { $tests += 3; };
+
+# test readiness
+ok(!$bisect->ready, "not ready yet");
+$$bisect{config}{min} = 0;
+ok(!$bisect->ready, "still not ready");
+$$bisect{config}{max} = 31;
+ok($bisect->ready , "ready now");
 BEGIN { $tests += 3; };
 
 # test "start"
@@ -120,9 +137,9 @@ $$bisect{rvs} = $test_responses;
 throws_ok(sub { $bisect->do_something_intelligent() }, qr/repository maximum/, "Max exceeds log");
 $bisect = test->new(Action => "start", Min => 0, Max => 18, Verbose => 0);
 $$bisect{rvs} = $test_responses;
-throws_ok(sub { $bisect->do_something_intelligent() }, qr/exit/, "Max in range");
+lives_ok(sub { $bisect->do_something_intelligent() }, "Max in range lives");
 unlink(catfile(".svn", "bisect.yaml"));
-$bisect = test->new(Action => "start", Min => 0, Verbose => 0);
+$bisect = test->new(Action => "start", Min => 0, Max => 31, Verbose => 0);
 $$bisect{rvs} = $test_responses;
 $bisect->do_something_intelligent();
 ok(-f catfile(".svn", "bisect.yaml"), "metadata file created");
@@ -161,14 +178,14 @@ like($$bisect{stdout}[0], qr/Choosing r16/, "Choosing r16");
 BEGIN { $tests += 12; };
 
 # test "view"
-$bisect = test->new(Action => "view", Min => 0, Verbose => 0);
+$bisect = test->new(Action => "view", Min => 0, Max => 31, Verbose => 0);
 $$bisect{rvs} = $test_responses;
 throws_ok( sub { $bisect->do_something_intelligent() }, qr/exit/, "normal exit");
 is(scalar @{$$bisect{stdout}}, 6, "6 lines written");
 is(join("\n", @{$$bisect{stdout}}, ""), <<EOF, "view output");
 There are currently 6 revisions under scrutiny.
-The last known-unaffected rev is 0.
-The first known- affected rev is 31.
+The last known unaffected rev is: 0.
+The first known affected rev is:  31.
 Currently testing 16.
 Revision chart:
 0] 1 8 12 16 18 24 [31
@@ -253,14 +270,14 @@ BEGIN { $tests += 4; };
 # test ->find_max()
 is($bisect->find_max(), 31, 'find_max');
 $$bisect{rvs}{'svn log -q -rHEAD:PREV'} = '';
-throws_ok(sub { $bisect->find_max() }, qr/cannot find/, 'find_max barfs');
+throws_ok(sub { $bisect->find_max() }, qr/Cannot find/, 'find_max barfs');
 BEGIN { $tests += 2; };
 
 
 # test ->find_cur()
 is($bisect->find_cur(), 16, 'find_cur');
 $$bisect{rvs}{'svn info'} = '';
-throws_ok(sub { $bisect->find_cur() }, qr/cannot find/, 'find_cur barfs');
+throws_ok(sub { $bisect->find_cur() }, qr/Cannot find/, 'find_cur barfs');
 BEGIN { $tests += 2; };
 
 
