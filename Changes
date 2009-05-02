@@ -1,3 +1,10 @@
+0.8 Sat May  2 06:05:18 PDT 2009
+* Be a bit smarter about skipped revisions when emitting the "bisect finished"
+  message.  (RT #43289)
+* Accept an "r" prefix for the revision argument to "before" and "after"
+  ("good" and "bad"), previously svn-bisect would expect a bare number and get
+  confused by this.
+
 0.7 Tue Feb 10 09:27:05 PST 2009
 * Bring the "svn-bisect" manpage up to date.
 * Change 'start' and the initial logic to behave more like git-bisect: if min

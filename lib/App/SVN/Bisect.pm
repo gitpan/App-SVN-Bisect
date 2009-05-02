@@ -7,7 +7,7 @@ use File::Spec;
 use IO::All;
 use YAML::Syck;
 
-our $VERSION = 0.7;
+our $VERSION = 0.8;
 
 =head1 NAME
 
@@ -130,8 +130,6 @@ sub start {
         die("Given 'max' value is greater than the repository maximum $max!\n")
             if $$self{config}{max} > $max;
     }
-    print("self.config.min = " . $$self{config}{min}, "\n") if defined $$self{config}{min};
-    print("self.config.max = " . $$self{config}{max}, "\n") if defined $$self{config}{max};
     return $self->next_rev();
 }
 
@@ -147,6 +145,7 @@ sub before {
     my $self = shift;
     my $rev = shift;
     $rev = $$self{config}{cur} unless defined $rev;
+    $rev = substr($rev, 1) if substr($rev, 0, 1) eq 'r';
     if($self->ready) {
         die("\"$rev\" is not a revision or is out of range.\n")
             unless exists($$self{config}{extant}{$rev});
@@ -168,6 +167,7 @@ sub after {
     my $rev = shift;
     $rev = $$self{config}{cur} unless defined $rev;
     $rev = $$self{config}{cur} = $self->find_cur() unless defined $rev;
+    $rev = substr($rev, 1) if substr($rev, 0, 1) eq 'r';
     if($self->ready) {
         die("\"$rev\" is not a revision or is out of range.\n")
             unless exists($$self{config}{extant}{$rev});
@@ -426,8 +426,23 @@ sub next_rev {
     unless(scalar @revs) {
         my $max = $$self{config}{max};
         $$self{config}{min} = $$self{config}{cur} = $max;
-        $self->stdout("This is the end of the road!  The change occurred in r",
-                      $max, ".\n");
+        my $previous_skips = 0;
+        my @previous_revisions = sort { $b <=> $a } keys %{$$self{config}{extant}};
+        @previous_revisions = grep { $_ < $max } @previous_revisions;
+        foreach my $rev (@previous_revisions) {
+            if(exists($$self{config}{skip}{$rev})) {
+                $previous_skips++;
+            } else {
+                last;
+            }
+        }
+        $self->stdout("This is the end of the road!\n");
+        if($previous_skips) {
+            $self->stdout("The change occurred in r$max, or one of the "
+                         ."$previous_skips skipped revs preceding it.\n");
+        } else {
+            $self->stdout("The change occurred in r$max.\n");
+        }
         return $self->update_to($max);
     }
     my $ent = 0;

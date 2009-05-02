@@ -113,15 +113,6 @@ ok(defined($bisect), "new() returns an object");
 is(ref($bisect), "test", "new() blesses object into specified class");
 ok(!-f catfile(".svn", "bisect.yaml"), "metadata file not created yet");
 BEGIN { $tests += 3; };
-#
-## test "view" when not ready
-#$bisect = test->new(Action => "view", Verbose => 0);
-#$$bisect{rvs} = $test_responses;
-#throws_ok( sub { $bisect->do_something_intelligent() }, qr/exit/, "normal exit");
-#is(scalar @{$$bisect{stdout}}, 6, "6 lines written");
-#is(join("\n", @{$$bisect{stdout}}, ""), <<EOF, "view output when not ready yet");
-#EOF
-#BEGIN { $tests += 3; };
 
 # test readiness
 ok(!$bisect->ready, "not ready yet");
@@ -192,7 +183,6 @@ Revision chart:
 EOF
 BEGIN { $tests += 3; };
 
-
 # test "after"
 $bisect = test->new(Action => "after", Min => 0, Verbose => 0);
 $$bisect{rvs} = $test_responses;
@@ -228,6 +218,17 @@ is($$bisect{config}{cur}, 12, "next step: test r12");
 is(scalar @{$$bisect{stdout}}, 1, "1 line written");
 like($$bisect{stdout}[0], qr/Choosing r12/, "Choosing r12");
 BEGIN { $tests += 7; };
+
+# test endgame with skipped revs
+$bisect = test->new(Action => "skip", Min => 0, Verbose => 0);
+$$bisect{config}{cur} = 12;
+$$bisect{rvs} = $test_responses;
+$bisect->do_something_intelligent();
+is($$bisect{config}{cur}, 16, "next step: test r16");
+is(scalar @{$$bisect{stdout}}, 2, "2 lines written");
+like($$bisect{stdout}[0], qr/This is the end of the road/, "road end");
+like($$bisect{stdout}[1], qr/ 2 skipped revs preceding/, "counted skips");
+BEGIN { $tests += 4; };
 
 # test "reset"
 ok(-f catfile(".svn", "bisect.yaml"), "metadata file still exists");
