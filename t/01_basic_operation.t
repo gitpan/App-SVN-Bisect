@@ -125,7 +125,7 @@ BEGIN { $tests += 3; };
 # test "start"
 $bisect = test->new(Action => "start", Min => 0, Max => 35, Verbose => 0);
 $$bisect{rvs} = $test_responses;
-throws_ok(sub { $bisect->do_something_intelligent() }, qr/repository maximum/, "Max exceeds log");
+throws_ok(sub { $bisect->do_something_intelligent() }, qr/working directory maximum/, "Max exceeds log");
 $bisect = test->new(Action => "start", Min => 0, Max => 18, Verbose => 0);
 $$bisect{rvs} = $test_responses;
 lives_ok(sub { $bisect->do_something_intelligent() }, "Max in range lives");

@@ -1,3 +1,7 @@
+0.9 Thu Nov 19 06:26:08 EST 2009
+* Change "repository maximum" to "revision history maximum", per RT #46566.
+* Implement revision lists for skip and unskip commands, per RT #51703.
+
 0.8 Sat May  2 06:05:18 PDT 2009
 * Be a bit smarter about skipped revisions when emitting the "bisect finished"
   message.  (RT #43289)

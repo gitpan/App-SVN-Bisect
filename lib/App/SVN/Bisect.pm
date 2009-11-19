@@ -7,7 +7,7 @@ use File::Spec;
 use IO::All;
 use YAML::Syck;
 
-our $VERSION = 0.8;
+our $VERSION = 0.9;
 
 =head1 NAME
 
@@ -127,7 +127,7 @@ sub start {
     my $max = $self->find_max();
     if(defined($$self{args}{Max})) {
         $$self{config}{max} = $$self{args}{Max};
-        die("Given 'max' value is greater than the repository maximum $max!\n")
+        die("Given 'max' value is greater than the working directory maximum $max!\n")
             if $$self{config}{max} > $max;
     }
     return $self->next_rev();
@@ -173,7 +173,7 @@ sub after {
             unless exists($$self{config}{extant}{$rev});
     } else {
         my $max = $self->find_max();
-        die("$rev is greater than the repository maximum $max!\n")
+        die("$rev is greater than the working directory maximum $max!\n")
             if $max < $rev;
     }
     $$self{config}{max} = $rev;
@@ -200,15 +200,19 @@ sub reset {
 Tells svn-bisect to ignore the specified (or current) revision, and
 then moves the user to another, strategically useful revision.
 
+You may specify as many revisions at once as you like.
+
 =cut
 
 sub skip {
     my $self = shift;
-    my $rev = shift;
-    $rev = $$self{config}{cur} unless defined $rev;
-    die("\"$rev\" is not a revision or is out of range.\n")
-        unless exists($$self{config}{extant}{$rev});
-    $$self{config}{skip}{$rev} = 1;
+    my @rev = @_;
+    @rev = $$self{config}{cur} unless scalar @rev;
+    foreach my $rev (@rev) {
+        die("\"$rev\" is not a revision or is out of range.\n")
+            unless exists($$self{config}{extant}{$rev});
+        $$self{config}{skip}{$rev} = 1;
+    }
     return $self->next_rev();
 }
 
@@ -218,15 +222,19 @@ sub skip {
 Tells svn-bisect to stop ignoring the specified revision, then moves
 the user to another, strategically useful revision.
 
+You may specify as many revisions at once as you like.
+
 =cut
 
 sub unskip {
     my $self = shift;
-    my $rev = shift;
-    die("Usage: unskip <revision>\n") unless defined $rev;
-    die("\"$rev\" is not a revision or is out of range.\n")
-        unless exists($$self{config}{extant}{$rev});
-    delete($$self{config}{skip}{$rev});
+    my @rev = @_;
+    die("Usage: unskip <revision>\n") unless scalar @rev;
+    foreach my $rev (@rev) {
+        die("\"$rev\" is not a revision or is out of range.\n")
+            unless exists($$self{config}{extant}{$rev});
+        delete($$self{config}{skip}{$rev});
+    }
     return $self->next_rev();
 }
 
@@ -281,11 +289,13 @@ Tries to clean up after itself, resets your checkout back to the original
 version, and removes its temporary datafile.
 END
         'skip' => <<"END",
-Usage: $0 skip [rev]
+Usage: $0 skip [<rev> [<rev>...]]
 
-This will tell $0 to ignore the specified (or current) revision.  You
-might want to do this if, for example, the current rev does not
-compile for reasons unrelated to the current session.
+This will tell $0 to ignore the specified (or current)
+revision.  You might want to do this if, for example, the current rev
+does not compile for reasons unrelated to the current session.  You
+may specify more than one revision, and they will all be skipped at
+once.
 END
         'start' => <<"END",
 Usage: $0 [--min <rev>] [--max <rev>] start
@@ -298,11 +308,12 @@ This command will prepare the checkout for a bisect session, and start off
 with a rev in the middle of the list of suspect revisions.
 END
         'unskip' => <<"END",
-Usage: $0 unskip <rev>
+Usage: $0 unskip <rev> [<rev>...]
 
 Undoes the effects of "skip <rev>", putting the specified revision
 back into the normal rotation (if it is still within the range of revisions
-currently under scrutiny).  The revision argument is required.
+currently under scrutiny).  The revision argument is required.  You may
+specify more than one revision, and they will all be unskipped at once.
 END
         'view' => <<"END",
 Usage: $0 view
@@ -638,7 +649,7 @@ App::SVNBinarySearch by Will Coleda: L<http://search.cpan.org/dist/App-SVNBinary
 
 =head1 COPYRIGHT AND LICENSE
 
-This software is copyright (c) 2008 Mark Glines.
+This software is copyright (c) 2008-2009 Mark Glines.
 
 It is distributed under the terms of the Artistic License 2.0.  For details,
 see the "LICENSE" file packaged alongside this module.

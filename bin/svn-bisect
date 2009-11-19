@@ -1,5 +1,5 @@
 #!/usr/bin/perl
-# Copyright (C) 2008, Mark Glines.  See "LICENSE".
+# Copyright (C) 2008-2009, Mark Glines.  See "LICENSE".
 use strict;
 use warnings;
 
@@ -108,21 +108,22 @@ the working tree is used.  If you are looking for the rev which introduced a bug
 
 =head2 skip
 
-    svn-bisect skip [revision]
+    svn-bisect skip [<rev> [<rev>...]]
 
 Tell svn-bisect to skip the specified revision.  If no revision is specified,
 the current version of the working tree is used.  Do this if you can't determine
 whether the current revision is bad or good, if, for instance, some other
 issue prevents it from compiling successfully.
 
+You may specify more than one revision, and they will all be skipped.
+
 =head2 unskip
 
-    svn-bisect unskip [revision]
+    svn-bisect unskip <rev> [<rev>...]
 
-Tell svn-bisect to no longer skip the specified revision.  If no revision is
-specified, the current version of the working tree is used.  The revision may
-be ignored anyway, if it lies outside of the current range of revisions under
-scrutiny.
+Tell svn-bisect to no longer skip the specified revision.  You must specify
+at least one revision to unskip.  If you specify more than one, they will
+all be unskipped.
 
 =head2 reset
 
@@ -294,7 +295,7 @@ This tool requires:
 
 * The IO::All module, installed from CPAN
 
-* The YAML module, installed from CPAN
+* The YAML::Syck module, installed from CPAN
 
 * The "svn" command somewhere in your PATH, executable by the current user
 
@@ -304,6 +305,12 @@ This tool requires:
 =head1 AUTHOR
 
     Mark Glines <mark-cpan@glines.org>
+
+
+=head1 REPOSITORY
+
+Browser: L<http://github.com/Infinoid/svn-bisect/>
+Clone: L<git://github.com/Infinoid/svn-bisect.git>
 
 
 =head1 THANKS
