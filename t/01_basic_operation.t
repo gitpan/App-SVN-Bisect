@@ -19,7 +19,7 @@ mkdir(".svn");
 package test;
 use Test::More;
 our @ISA = qw(test2);
-sub run {
+sub cmd {
     my ($self, $cmd) = @_;
     $$self{cmds} = [] unless exists $$self{cmds};
     push(@{$$self{cmds}}, $cmd);
@@ -43,7 +43,7 @@ sub exit {
 package test2;
 use Test::More;
 our @ISA = qw(App::SVN::Bisect);
-sub run {
+sub cmd {
     my ($self, $cmd) = @_;
     $$self{cmds} = [] unless exists $$self{cmds};
     push(@{$$self{cmds}}, $cmd);
@@ -235,7 +235,7 @@ ok(-f catfile(".svn", "bisect.yaml"), "metadata file still exists");
 $bisect = test->new(Action => "reset", Min => 0, Verbose => 0);
 $$bisect{rvs} = $test_responses;
 $bisect->do_something_intelligent();
-ok(!defined $$bisect{stdout}, "no output");
+is(scalar @{$$bisect{stdout}}, 1, "1 line of output");
 ok(!-f catfile(".svn", "bisect.yaml"), "metadata file removed");
 BEGIN { $tests += 3; };
 
@@ -243,24 +243,24 @@ BEGIN { $tests += 3; };
 $bisect = test->new(Action => "help");
 $$bisect{rvs} = $test_responses;
 throws_ok(sub {$bisect->do_something_intelligent() }, qr/exit/, "help runs");
-is(scalar @{$$bisect{stdout}}, 11, "several lines written");
+is(scalar @{$$bisect{stdout}}, 12, "several lines written");
 like($$bisect{stdout}[0], qr/Usage:/, "first line is a Usage:");
 throws_ok(sub {$bisect->do_something_intelligent('_') }, qr/exit/, "help runs");
-is(scalar @{$$bisect{stdout}}, 22, "several lines written");
-like($$bisect{stdout}[11], qr/Usage:/, "first line is a Usage:");
+is(scalar @{$$bisect{stdout}}, 24, "several lines written");
+like($$bisect{stdout}[12], qr/Usage:/, "first line is a Usage:");
 throws_ok(sub {$bisect->do_something_intelligent('nonexistent') }, qr/No known help topic/, "help dies");
 BEGIN { $tests += 7; };
 
 
-# test ->run()
+# test ->cmd()
 $? = 0;
 $$bisect{stdout} = [];
-my $version = eval { App::SVN::Bisect::run($bisect, "svn --version") };
+my $version = eval { App::SVN::Bisect::cmd($bisect, "svn --version") };
 SKIP: {
     skip "no svn command found!", 4 if $?;
 
     like($version, qr/Subversion/, "svn --version output matches /Subversion/");
-    throws_ok(sub { App::SVN::Bisect::run($bisect, "svn --unknown-arg 2>/dev/null") },
+    throws_ok(sub { App::SVN::Bisect::cmd($bisect, "svn --unknown-arg 2>/dev/null") },
         qr/exit/, "handles error");
     is(scalar @{$$bisect{stdout}}, 2, "two lines written");
     like($$bisect{stdout}[1], qr/Please fix that/, "informative message");

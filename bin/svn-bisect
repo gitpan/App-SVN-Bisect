@@ -4,10 +4,11 @@ use strict;
 use warnings;
 
 use App::SVN::Bisect;
-use Getopt::Long;
+use Getopt::Long qw(:config require_order);
 
 my $min     = undef;
 my $max     = undef;
+my $back    = 0;
 my $verbose = 0;
 my $help    = 0;
 my $version = 0;
@@ -15,6 +16,7 @@ my $version = 0;
 GetOptions(
     "min=i"   => \$min,
     "max=i"   => \$max,
+    "back"    => \$back,
     "verbose" => \$verbose,
     "version" => \$version,
     "help"    => \$help,
@@ -33,7 +35,8 @@ my $bisect = App::SVN::Bisect->new(
     Action  => $action,
     Min     => $min,
     Max     => $max,
-    Verbose => $verbose
+    Verbose => $verbose,
+    Back    => $back
 );
 $bisect->do_something_intelligent(@ARGV);
 
@@ -44,7 +47,7 @@ svn-bisect
 
 =head1 SYNOPSIS
 
-    $ svn-bisect start --min 25000 --max 26000
+    $ svn-bisect --min 25000 --max 26000 start
     $ svn-bisect bad
     $ svn-bisect bad
     $ svn-bisect good
@@ -76,11 +79,46 @@ a "svn-bisect start", all subsequent svn-bisect commands need to be run from
 that same directory.
 
 
+=head1 OPTIONS
+
+Options MUST be specified before subcommands, on the command line.  Options
+specified after the subcommand will be passed to the subcommand; this is
+currently only useful for the "run" subcommand.
+
+=over 4
+
+=item --help
+
+Use anywhere.  Output a command list, or specific help for the given command.
+
+=item --version
+
+Use anywhere.  Tells you my version number.
+
+=item --verbose
+
+Use anywhere.  Enable some additional informational output.
+
+=item --min
+
+Use with "start".  Specify the beginning revision of the range.
+
+=item --max
+
+Use with "start".  Specify the ending revision of the range.
+
+=item --back
+
+Use with "reset".  Restores the original repository version.
+
+=back
+
+
 =head1 SUBCOMMANDS
 
 =head2 start
 
-    svn-bisect start [--min M] [--max N]
+    svn-bisect [--min M] [--max N] start
 
 Start a new bisect session.  If --min isn't specified, you can specify it later
 with the "good" command.  If --max isn't specified, you can specify it later
@@ -125,6 +163,33 @@ Tell svn-bisect to no longer skip the specified revision.  You must specify
 at least one revision to unskip.  If you specify more than one, they will
 all be unskipped.
 
+=head2 run
+
+    svn-bisect run <command> [arguments...]
+
+Runs a command repeatedly to automate the bisection process.
+
+Examples:
+
+    svn-bisect run ./mytest.sh
+    svn-bisect run test ! -f file
+
+We run the command and arguments until a conclusion is reached.  The
+command (usually a shell script) tells us about the current revision
+by way of its return code.  The following return codes are handled:
+
+    0: This revision is before the change we're looking for
+    1-124, 126-127: This revision includes the change we're looking for
+    125: This revision is untestable and should be skipped
+    any other value: The command failed to run, abort bisection.
+
+In other words, "run" will automatically find the last revision for
+which the given command returns success.  (Keep in mind that in the
+shell, "0" means "success".)
+
+The normal caveats apply.  In particular, if your script makes any
+changes, don't forget to clean up afterwards.
+
 =head2 reset
 
     svn-bisect reset
@@ -164,6 +229,8 @@ otherwise it was "before".  So a bisect looks like this:
     Fri May  2 12:52:20 PDT 2008
     
     $ svn-bisect start
+    $ svn-bisect before 0
+    $ svn-bisect after
     There are 13853 revs left in the pool.  Choosing r15480.
     
     $ ack --nocolor --nogroup 'Last Changed Rev'

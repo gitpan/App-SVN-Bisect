@@ -7,7 +7,7 @@ use File::Spec;
 use IO::All;
 use YAML::Syck;
 
-our $VERSION = 0.9;
+our $VERSION = '1.0';
 
 =head1 NAME
 
@@ -41,6 +41,7 @@ my %actions = (
     'good'   => { read_config => 1, write_config => 1, handler => \&before },
     'help'   => { read_config => 0, write_config => 0, handler => \&help   },
     'reset'  => { read_config => 1, write_config => 0, handler => \&reset  },
+    'run'    => { read_config => 1, write_config => 1, handler => \&run    },
     'skip'   => { read_config => 1, write_config => 1, handler => \&skip   },
     'start'  => { read_config => 0, write_config => 1, handler => \&start  },
     'unskip' => { read_config => 1, write_config => 1, handler => \&unskip },
@@ -145,6 +146,7 @@ sub before {
     my $self = shift;
     my $rev = shift;
     $rev = $$self{config}{cur} unless defined $rev;
+    $rev = $$self{config}{cur} = $self->find_cur() unless defined $rev;
     $rev = substr($rev, 1) if substr($rev, 0, 1) eq 'r';
     if($self->ready) {
         die("\"$rev\" is not a revision or is out of range.\n")
@@ -183,15 +185,24 @@ sub after {
 
 =head2 reset
 
-Cleans up after a bisect session; moves the working tree back to the original
-revision it had when "start" was first called.
+Cleans up after a bisect session.  If --back is passed, it also moves
+the working tree back to the original revision it had when "start" was
+first called.
 
 =cut
 
 sub reset {
     my $self = shift;
+    my $arg  = $$self{args}{Back};
     my $orig = $$self{config}{orig};
-    return $self->update_to($orig);
+    if(defined($arg) && $arg) {
+        $self->stdout("Resetting your checkout back to r$orig.\n");
+        return $self->update_to($orig);
+    } else {
+        my $cur = $self->find_cur();
+        $self->stdout("Cleaned up.  Your checkout is still at rev r$cur.\n");
+        return 0;
+    }
 }
 
 
@@ -239,6 +250,63 @@ sub unskip {
 }
 
 
+=head2 run
+
+Runs a command repeatedly to automate the bisection process.
+
+We run the command and arguments until a conclusion is reached.  The
+command (usually a shell script) tells us about the current revision
+by way of its return code.  The following return codes are handled:
+
+    0: This revision is before the change we're looking for
+    1-124, 126-127: This revision includes the change we're looking for
+    125: This revision is untestable and should be skipped
+    any other value: The command failed to run, abort bisection.
+
+The normal caveats apply.  In particular, if your script makes any
+changes, don't forget to clean up afterwards.
+
+=cut
+
+sub run {
+    my $self = shift;
+    my @cmd = @_;
+    die("Usage: run <command> [arguments...]\n") unless scalar @cmd;
+    die("You have not yet defined a min and max.\n") unless $self->ready();
+    my @revs = $self->list_revs();
+    die("There are no revisions left to bisect.\n") unless scalar @revs;
+    while(1) {
+        @revs = $self->list_revs();
+        exit(0) unless scalar @revs;
+        system(@cmd);
+        if($? == -1) {
+            die("Failed to execute " . join(" ",@cmd) . "\n");
+        }
+        if($? & 127) {
+            die(sprintf("Command died with signal %d.\n", $? & 127));
+        }
+        my $rv = $? >> 8;
+        if($rv > 127) {
+            die("Command failed, returned $rv.\n");
+        }
+        if($rv == 0) {
+            $self->before();
+            unlink($$self{metadata});
+            io($$self{metadata}) < Dump($$self{config});
+        }
+        elsif($rv != 125) {
+            $self->after();
+            unlink($$self{metadata});
+            io($$self{metadata}) < Dump($$self{config});
+        } else {
+            $self->skip();
+            unlink($$self{metadata});
+            io($$self{metadata}) < Dump($$self{config});
+        }
+    }
+}
+
+
 =head2 help
 
 Allows the user to get some descriptions and usage information.
@@ -259,6 +327,7 @@ where subcommand is one of:
     before (alias: "good")
     help   (hey, that's me!)
     reset
+    run
     skip
     start
     unskip
@@ -283,10 +352,11 @@ Tells the bisect routine that the specified (or current) checkout is
 change in behavior, whatever.
 END
         'reset' => <<"END",
-Usage: $0 reset
+Usage: $0 [--back] reset
 
-Tries to clean up after itself, resets your checkout back to the original
-version, and removes its temporary datafile.
+Cleans up after a bisect, removes the temporary data file.  if you
+specify --back, it will also reset your checkout back to the original
+version.
 END
         'skip' => <<"END",
 Usage: $0 skip [<rev> [<rev>...]]
@@ -314,6 +384,24 @@ Undoes the effects of "skip <rev>", putting the specified revision
 back into the normal rotation (if it is still within the range of revisions
 currently under scrutiny).  The revision argument is required.  You may
 specify more than one revision, and they will all be unskipped at once.
+END
+        'run' => <<"END",
+Usage: $0 run <command> [arguments...]
+
+Runs a command repeatedly to automate the bisection process.
+
+The command is run with the specified arguments until a conclusion is
+reached.  The command (usually a shell script) tells us about the
+current revision by way of its return code.  The following return codes
+are handled:
+
+    0: This revision is before the change we're looking for
+    1-124, 126-127: This revision includes the change we're looking for
+    125: This revision is untestable and should be skipped
+    any other value: The command failed to run, abort bisection.
+
+The normal caveats apply.  In particular, if your script makes any
+changes, don't forget to clean up afterwards.
 END
         'view' => <<"END",
 Usage: $0 view
@@ -377,15 +465,15 @@ sub view {
 
 =head1 INTERNAL METHODS
 
-=head2 run
+=head2 cmd
 
-    my $stdout = $self->run("svn info");
+    my $stdout = $self->cmd("svn info");
 
 Runs a command, returns its output.
 
 =cut
 
-sub run {
+sub cmd {
     my ($self, $cmd) = @_;
     $self->verbose("Running: $cmd\n");
     my $output = qx($cmd);
@@ -552,7 +640,7 @@ Calls 'svn update' to move to the specified revision.
 sub update_to {
     my ($self, $rev) = @_;
     my $cmd = "svn update -r$rev";
-    $self->run($cmd);
+    $self->cmd($cmd);
 }
 
 
@@ -570,8 +658,10 @@ sub fetch_log_revs {
     my $self = shift;
     my $min = $$self{config}{min};
     my $max = $$self{config}{max};
+    $self->stdout("Fetching history from r$min to r$max; it may take a while.\n")
+        if(($max - $min) > 100);
     my %rv;
-    my $log = $self->run("svn log -q -r$min:$max");
+    my $log = $self->cmd("svn log -q -r$min:$max");
     $log =~ s/\r//;
     foreach my $line (split(/\n+/, $log)) {
         if($line =~ /^r(\d+) /) {
@@ -593,7 +683,7 @@ within the repository.
 
 sub find_max {
     my $self = shift;
-    my $log = $self->run("svn log -q -rHEAD:PREV");
+    my $log = $self->cmd("svn log -q -rHEAD:PREV");
     $log =~ s/\r//;
     foreach my $line (split(/\n+/, $log)) {
         if($line =~ /^r(\d+) /) {
@@ -614,7 +704,7 @@ Parses the output of "svn info" to figure out what the current revision is.
 
 sub find_cur {
     my $self = shift;
-    my $info = $self->run("svn info");
+    my $info = $self->cmd("svn info");
     $info =~ s/\r//;
     # parse the "Last Changed Rev:" entry
     foreach my $line (split(/\n+/, $info)) {
